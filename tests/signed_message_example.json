@@ -1,0 +1,17 @@
+{
+    "success": true,
+    "error": null,
+    "result": "201616712a0b6af7347ab398b0e5c5a28c05a018e1ada678785aca917a8d642e192e1a7fd5ca99e905fbd8a0ef6352cda1a35a18a318ee28ce1119c1e74f4a97b2",
+    "data": {
+        "type": "signBuffer",
+        "username": "gunt",
+        "message": "prison noise later gunt 1706870490.728647 daa10fc2-2f9b-407e-9070-6b05bc8c0a01",
+        "method": "Posting",
+        "rpc": null,
+        "title": "Login to V4V.app API",
+        "key": "posting"
+    },
+    "message": "Message signed succesfully.",
+    "request_id": 1,
+    "publicKey": "STM6EYcJF1ew6VYq1swh8CfKMyCzFFgEp9LLEUfgMvXAvkfVbsma2"
+}

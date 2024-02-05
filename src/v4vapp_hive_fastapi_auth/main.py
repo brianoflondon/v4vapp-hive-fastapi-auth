@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from single_source import get_version
+
 from v4vapp_hive_fastapi_auth import routes
 
 __version__ = get_version(__name__, "", default_return="0.0.1")
