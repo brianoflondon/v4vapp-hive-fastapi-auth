@@ -1,10 +1,11 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from single_source import get_version
+from v4vapp_hive_fastapi_auth import routes
 
 __version__ = get_version(__name__, "", default_return="0.0.1")
-from contextlib import asynccontextmanager
 
 
 @asynccontextmanager
@@ -29,6 +30,8 @@ app = FastAPI(
     #     "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
     # },
 )
+
+app.include_router(routes.router)
 
 
 @app.get("/", tags=["v4vapp"])
