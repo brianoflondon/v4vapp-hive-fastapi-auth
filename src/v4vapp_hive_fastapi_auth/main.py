@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from single_source import get_version
 
-# __version__ = get_version(__name__, "", default_return="0.0.1")
+__version__ = get_version(__name__, "", default_return="0.0.1")
 from contextlib import asynccontextmanager
 
 
