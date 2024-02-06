@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>API Test</title>
+</head>
+
+<body>
+
+    <h3>API login Sign message</h3>
+    <input type="text" id="hiveAccName" value="gunt" placeholder="Hive Account">
+    <button id="apiAuthenticate">Call API</button>
+    <div id="challengeText"></div>
+    <div id="responseText"></div>
+    <div>Use Key:</div>
+    <select id="sign_method">
+        <option>Posting</option>
+        <option>Active</option>
+        <option>Memo</option>
+    </select>
+    <hr>
+    Username:
+    <div id="usernameDisplay" placeholder="Username"></div>
+    Password:
+    <div id="passwordDisplay" placeholder="Password"></div>
+    </div>
+    <div>
+        <h3>And Check for another call</h3>
+        <button id="fetchUserData">Fetch User Data</button>
+        <div id="userDataDisplay"></div>
+    </div>
+    <h3>Local</h3>
+    <select id="apiBaseUrl">
+        <option>http://localhost:8000/</option>
+    </select>
+
+
+    <!-- <script src="/example/jquery.js"></script> -->
+    <!-- <script src="/example/main.js?v=a"></script> -->
+    <script>
+        var apiBaseUrl = ""
+
+        function setBaseUrl() {
+            var apiBaseUrlSelect = document.getElementById("apiBaseUrl");
+            apiBaseUrl = apiBaseUrlSelect.options[apiBaseUrlSelect.selectedIndex].value;
+        }
+
+        function signBuffer(hiveAccName, signMessage, signMethod, signMessageTitle) {
+            return new Promise((resolve, reject) => {
+                hive_keychain.requestSignBuffer(
+                    hiveAccName.length ? hiveAccName : null,
+                    signMessage,
+                    signMethod,
+                    function (response) {
+                        if (response.success) {
+                            resolve(response); // Resolve with the full response data
+                        } else {
+                            reject('Error in hive_keychain.requestSignBuffer');
+                        }
+                    },
+                    null,
+                    signMessageTitle.length ? signMessageTitle : null,
+                );
+            });
+        }
+
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                var r = Math.random() * 16 | 0,
+                    v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+
+        // generate a random string and set it in browser storage
+        function generateClientId() {
+            var randomString = generateUUID();
+            localStorage.setItem('v4vClientId', randomString);
+            return randomString;
+        }
+
+        // get the clientId from browser storage
+        function getClientId() {
+            var clientId = localStorage.getItem('v4vClientId');
+            if (!clientId) {
+                clientId = generateClientId();
+            }
+            return clientId;
+        }
+
+
+        document.getElementById('apiAuthenticate').addEventListener('click', async function () {
+            try {
+                setBaseUrl();
+                var hiveAccName = document.getElementById('hiveAccName').value;
+                console.log("hiveAccName", hiveAccName);
+                var clientId = getClientId();
+                var getChallenge = await fetch(`${apiBaseUrl}auth/${hiveAccName}?clientId=${clientId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    mode: 'cors',
+                });
+
+                var challengeData = await getChallenge.json();
+                document.getElementById('challengeText').textContent = JSON.stringify(challengeData);
+                console.log(challengeData);
+
+                var signMethod = document.getElementById('sign_method').value;
+                console.log("signMethod", signMethod);
+                var signMessageTitle = "Login to V4V.app API";
+                console.log("signMessageTitle", signMessageTitle);
+                var signMessage = challengeData.challenge;
+                console.log("signMessage", signMessage);
+                // Hive Keychain signs the message here
+                var signedMessage = await signBuffer(hiveAccName, signMessage, signMethod, signMessageTitle);
+                console.log("signedMessage", signedMessage);
+                var formData = new URLSearchParams();
+
+                var response = await fetch(`${apiBaseUrl}auth/validate/?clientId=${clientId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(signedMessage),
+                    mode: 'cors',
+                });
+
+                let usernameData = {
+                    hiveAccName: hiveAccName,
+                    clientId: clientId,
+                }
+
+                let usernameString = JSON.stringify(usernameData);
+                formData.append('username', usernameString);
+
+                let passwordData = {
+                    success: signedMessage.success,
+                    publicKey: signedMessage.publicKey,
+                    result: signedMessage.result,
+                    data: {
+                        username: signedMessage.data.username,
+                        message: signedMessage.data.message,
+                        key: signedMessage.data.key,
+                    }
+                };
+                let passwordString = JSON.stringify(passwordData);
+                formData.append('password', passwordString);
+
+                // put passwordString into the page
+                document.getElementById('usernameDisplay').innerHTML = usernameString;
+                document.getElementById('passwordDisplay').innerHTML = passwordString;
+
+                console.log(formData);
+
+                var response = await fetch(apiBaseUrl + 'token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData,
+                    mode: 'cors',
+                });
+                var postDataResponse = await response.json();
+                console.log(postDataResponse);
+                var tokens = JSON.parse(localStorage.getItem('v4vAccessTokenApi')) || {}; // Retrieve the existing tokens object from local storage
+                tokens[hiveAccName] = postDataResponse.access_token; // Add the new token
+                localStorage.setItem('v4vAccessTokenApi', JSON.stringify(tokens)); // Store the updated tokens object back in local storage
+
+            } catch (error) {
+
+                console.error('Error:', error);
+            }
+
+        });
+
+        document.getElementById('fetchUserData').addEventListener('click', async function () {
+            console.log("fetchUserData")
+            setBaseUrl();
+            var hiveAccName = document.getElementById('hiveAccName').value; // Retrieve the hiveAccName from the input field
+            console.log("Using Token for hiveAccName", hiveAccName)
+            var tokens = JSON.parse(localStorage.getItem('v4vAccessTokenApi')) || {}; // Retrieve the tokens object from local storage
+            var accessToken = tokens[hiveAccName]; // Get the token for the hiveAccName
+            console.log("accessToken", accessToken)
+            if (!accessToken) {
+                console.error('No access token found for the provided hiveAccName');
+                // Display the data in the element with the id 'userDataDisplay'
+                var data = {
+                    hiveAccName: hiveAccName,
+                    error: `No access token found for the provided ${hiveAccName}`
+                }
+                document.getElementById('userDataDisplay').textContent = JSON.stringify(data, null, 2);
+                return;
+            }
+            var response = await fetch(`${apiBaseUrl}secure/`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                mode: 'cors',
+            });
+            var data = await response.json();
+
+            // Display the data in the element with the id 'userDataDisplay'
+            document.getElementById('userDataDisplay').textContent = JSON.stringify(data, null, 2);
+        });
+    </script>
+</body>
+
+</html>
